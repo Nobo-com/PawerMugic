@@ -21,12 +21,10 @@ workflows:
       - name: Set up local.properties
         script: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
-      - name: Set executable permissions for gradlew
-        script: |
-          chmod +x gradlew
       - name: Build Debug APK
         script: |
-          ./gradlew assembleDebug
+          chmod +x gradlew
+          ./gradlew assembleDebug || { echo "Wrapper failed or corrupt, falling back to global gradle..."; gradle assembleDebug; }
     artifacts:
       - app/build/outputs/apk/**/*.apk
     publishing:
