@@ -1,0 +1,6 @@
+{
+  "name": "PowerMusic",
+  "description": "A beautiful music player with offline and simulated online playback.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
