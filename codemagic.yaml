@@ -5,13 +5,12 @@ workflows:
   android-build:
     name: Android APK Build
     max_build_duration: 30
-    instance_type: mac_mini_co
+    instance_type: linux
     environment:
       groups:
         - keystore_credentials # optional, define secure keys in codemagic UI if needed
       vars:
         PACKAGE_NAME: "com.example"
-      android_sdk: true
       java: 17
     triggering:
       events:
