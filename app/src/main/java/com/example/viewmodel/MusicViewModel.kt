@@ -41,6 +41,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _duration = MutableStateFlow(0L)
     val duration: StateFlow<Long> = _duration.asStateFlow()
 
+    private val _isShuffleEnabled = MutableStateFlow(false)
+    val isShuffleEnabled: StateFlow<Boolean> = _isShuffleEnabled.asStateFlow()
+
+    private val _isRepeatEnabled = MutableStateFlow(false)
+    val isRepeatEnabled: StateFlow<Boolean> = _isRepeatEnabled.asStateFlow()
+
+    private val _favoriteSongs = MutableStateFlow<Set<Long>>(emptySet())
+    val favoriteSongs: StateFlow<Set<Long>> = _favoriteSongs.asStateFlow()
+
     val player: ExoPlayer = ExoPlayer.Builder(application)
         .setAudioAttributes(
             AudioAttributes.Builder()
@@ -90,9 +99,61 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_READY) {
                     _duration.value = player.duration.coerceAtLeast(0)
+                } else if (playbackState == Player.STATE_ENDED) {
+                    if (!_isRepeatEnabled.value) {
+                        nextSong()
+                    }
                 }
             }
         })
+    }
+
+    fun toggleShuffle() {
+        _isShuffleEnabled.value = !_isShuffleEnabled.value
+    }
+
+    fun toggleRepeat() {
+        _isRepeatEnabled.value = !_isRepeatEnabled.value
+        player.repeatMode = if (_isRepeatEnabled.value) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+    }
+
+    fun toggleFavorite(songId: Long) {
+        val currentFavs = _favoriteSongs.value.toMutableSet()
+        if (currentFavs.contains(songId)) {
+            currentFavs.remove(songId)
+        } else {
+            currentFavs.add(songId)
+        }
+        _favoriteSongs.value = currentFavs
+    }
+
+    fun nextSong() {
+        val current = _currentSong.value ?: return
+        val list = if (current.isOnline) _onlineSongs.value else _localSongs.value
+        if (list.isEmpty()) return
+
+        if (_isShuffleEnabled.value) {
+            val nextIndex = (list.indices).random()
+            playSong(list[nextIndex])
+        } else {
+            val currentIndex = list.indexOfFirst { it.id == current.id }
+            if (currentIndex != -1) {
+                val nextIndex = (currentIndex + 1) % list.size
+                playSong(list[nextIndex])
+            }
+        }
+    }
+
+    fun previousSong() {
+        val current = _currentSong.value ?: return
+        val list = if (current.isOnline) _onlineSongs.value else _localSongs.value
+        if (list.isEmpty()) return
+
+        val currentIndex = list.indexOfFirst { it.id == current.id }
+        if (currentIndex != -1) {
+            val prevIndex = (currentIndex - 1 + list.size) % list.size
+            playSong(list[prevIndex])
+        }
     }
 
     fun loadLocalMusic() {

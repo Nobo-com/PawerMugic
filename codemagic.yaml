@@ -1,0 +1,39 @@
+# Codemagic configuration for Android APK builds
+# Put this file at the root of your repository
+
+workflows:
+  android-build:
+    name: Android APK Build
+    max_build_duration: 30
+    instance_type: mac_mini_co
+    environment:
+      groups:
+        - keystore_credentials # optional, define secure keys in codemagic UI if needed
+      vars:
+        PACKAGE_NAME: "com.example"
+      android_sdk: true
+      java: 17
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: '*'
+    scripts:
+      - name: Set up local.properties
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+      - name: Set executable permissions for gradlew
+        script: |
+          chmod +x gradlew
+      - name: Build Debug APK
+        script: |
+          ./gradlew assembleDebug
+    artifacts:
+      - app/build/outputs/apk/**/*.apk
+    publishing:
+      email:
+        recipients:
+          - fahimmia017740@gmail.com # Sends a notification when the build completes successfully
+        notify:
+          success: true
+          failure: true
