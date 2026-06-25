@@ -19,6 +19,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.example.network.ITunesRepository
+import com.example.BuildConfig
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
@@ -28,6 +31,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _onlineSongs = MutableStateFlow<List<Song>>(emptyList())
     val onlineSongs: StateFlow<List<Song>> = _onlineSongs.asStateFlow()
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     private val _currentSong = MutableStateFlow<Song?>(null)
     val currentSong: StateFlow<Song?> = _currentSong.asStateFlow()
@@ -50,7 +56,17 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _favoriteSongs = MutableStateFlow<Set<Long>>(emptySet())
     val favoriteSongs: StateFlow<Set<Long>> = _favoriteSongs.asStateFlow()
 
-    val player: ExoPlayer = ExoPlayer.Builder(application)
+    private val itunesRepository = ITunesRepository()
+
+    private var searchJob: Job? = null
+
+    private val playerContext = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+        application.createAttributionContext("audio")
+    } else {
+        application
+    }
+
+    val player: ExoPlayer = ExoPlayer.Builder(playerContext)
         .setAudioAttributes(
             AudioAttributes.Builder()
                 .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
@@ -63,7 +79,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         setupPlayer()
-        loadMockOnlineSongs()
+        searchOnlineSongs("lofi") // Initial search
         
         viewModelScope.launch {
             while (true) {
@@ -204,6 +220,36 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 songList
             }
             _localSongs.value = songs
+        }
+    }
+
+    fun searchOnlineSongs(query: String) {
+        if (query.isBlank()) return
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            try {
+                _errorMessage.value = null // Clear previous errors
+                val tracks = itunesRepository.searchTracks(query)
+                val newSongs = tracks.map { track ->
+                    Song(
+                        id = track.trackId,
+                        title = track.trackName ?: "Unknown Track",
+                        artist = track.artistName ?: "Unknown Artist",
+                        data = track.previewUrl ?: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", // Fallback to sample if preview not available
+                        duration = 30000, // Previews are 30s
+                        albumArtUri = track.artworkUrl100?.replace("100x100bb", "600x600bb"), // get larger image
+                        isOnline = true,
+                        youtubeId = track.trackId.toString()
+                    )
+                }
+                _onlineSongs.value = newSongs
+                if (newSongs.isEmpty()) {
+                    _errorMessage.value = "No results found or preview unavailable."
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _errorMessage.value = "Error: ${e.message}"
+            }
         }
     }
 

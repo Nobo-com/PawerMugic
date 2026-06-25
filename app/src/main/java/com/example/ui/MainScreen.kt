@@ -32,7 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun MainScreen(viewModel: MusicViewModel) {
     var selectedTabIndex by remember { mutableStateOf(0) }
-    val tabs = listOf("Local", "Online")
+    val tabs = listOf("Local", "Online", "Equalizer")
     
     val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
@@ -97,10 +97,10 @@ fun MainScreen(viewModel: MusicViewModel) {
                     }
                 }
 
-                if (selectedTabIndex == 0) {
-                    LocalLibraryScreen(viewModel)
-                } else {
-                    OnlineLibraryScreen(viewModel)
+                when (selectedTabIndex) {
+                    0 -> LocalLibraryScreen(viewModel)
+                    1 -> OnlineLibraryScreen(viewModel)
+                    2 -> EqualizerScreen(viewModel)
                 }
             }
         }
@@ -162,30 +162,59 @@ fun LocalLibraryScreen(viewModel: MusicViewModel) {
 @Composable
 fun OnlineLibraryScreen(viewModel: MusicViewModel) {
     val songs by viewModel.onlineSongs.collectAsStateWithLifecycle()
+    val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    var searchQuery by remember { mutableStateOf("lofi") }
     
     Column(modifier = Modifier.fillMaxSize()) {
-        Box(
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(com.example.ui.theme.PowerSurface)
-                .padding(16.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+                .padding(16.dp),
+            placeholder = { Text("Search music online...", color = com.example.ui.theme.PowerTextSecondary) },
+            leadingIcon = {
                 Icon(Icons.Default.Search, contentDescription = "Search", tint = com.example.ui.theme.PowerTextSecondary)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Search YouTube...", color = com.example.ui.theme.PowerTextSecondary)
-            }
-        }
+            },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { viewModel.searchOnlineSongs(searchQuery) }) {
+                        Icon(Icons.Default.Search, contentDescription = "Submit Search", tint = com.example.ui.theme.PowerAccent)
+                    }
+                }
+            },
+            singleLine = true,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                onSearch = { 
+                    viewModel.searchOnlineSongs(searchQuery)
+                    // Optionally hide keyboard here
+                }
+            ),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = com.example.ui.theme.PowerAccent,
+                unfocusedBorderColor = com.example.ui.theme.PowerSurface,
+                focusedTextColor = com.example.ui.theme.PowerText,
+                unfocusedTextColor = com.example.ui.theme.PowerText,
+            ),
+            shape = RoundedCornerShape(8.dp)
+        )
         
         Text(
-            text = "Trending on YouTube",
+            text = "Results",
             color = com.example.ui.theme.PowerText,
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
+
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage!!,
+                color = com.example.ui.theme.PowerAccent,
+                modifier = Modifier.padding(16.dp)
+            )
+        }
         
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
