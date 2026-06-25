@@ -80,7 +80,7 @@ fun MainScreen(viewModel: MusicViewModel) {
                     containerColor = com.example.ui.theme.PowerBackground,
                     contentColor = com.example.ui.theme.PowerAccent,
                     indicator = { tabPositions ->
-                        TabRowDefaults.Indicator(
+                        TabRowDefaults.SecondaryIndicator(
                             Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
                             color = com.example.ui.theme.PowerAccent
                         )
