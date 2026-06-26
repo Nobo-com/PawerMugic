@@ -26,6 +26,9 @@ jobs:
       run: |
         echo $KEYSTORE_BASE64 | base64 -d > my-upload-key.jks
 
+    - name: Regenerate Gradle Wrapper
+      run: gradle wrapper
+
     - name: Make gradlew executable
       run: chmod +x ./gradlew
 
