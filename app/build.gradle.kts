@@ -12,7 +12,7 @@ android {
 
   defaultConfig {
     applicationId = "com.example"
-    minSdk = 24
+    minSdk = 28
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
@@ -101,6 +101,7 @@ dependencies {
   implementation(libs.retrofit)
   implementation(libs.androidx.media3.exoplayer)
   implementation(libs.androidx.media3.ui)
+  implementation("com.startapp:inapp-sdk:5.1.0") // Or whatever StartApp's current latest
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)

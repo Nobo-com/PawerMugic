@@ -26,6 +26,13 @@ import kotlinx.coroutines.withContext
 
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val _appTheme = MutableStateFlow(com.example.ui.theme.ThemeBlue)
+    val appTheme: StateFlow<com.example.ui.theme.AppThemeColors> = _appTheme.asStateFlow()
+
+    fun setAppTheme(theme: com.example.ui.theme.AppThemeColors) {
+        _appTheme.value = theme
+    }
+
     private val _localSongs = MutableStateFlow<List<Song>>(emptyList())
     val localSongs: StateFlow<List<Song>> = _localSongs.asStateFlow()
 
@@ -53,8 +60,46 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _isRepeatEnabled = MutableStateFlow(false)
     val isRepeatEnabled: StateFlow<Boolean> = _isRepeatEnabled.asStateFlow()
 
+    private val _sleepTimerMinutes = MutableStateFlow<Int?>(null)
+    val sleepTimerMinutes: StateFlow<Int?> = _sleepTimerMinutes.asStateFlow()
+    
+    private var sleepTimerJob: Job? = null
+
+    fun setSleepTimer(minutes: Int?) {
+        _sleepTimerMinutes.value = minutes
+        sleepTimerJob?.cancel()
+        if (minutes != null) {
+            sleepTimerJob = viewModelScope.launch {
+                delay(minutes * 60 * 1000L)
+                player.pause()
+                _sleepTimerMinutes.value = null
+            }
+        }
+    }
+
     private val _favoriteSongs = MutableStateFlow<Set<Long>>(emptySet())
     val favoriteSongs: StateFlow<Set<Long>> = _favoriteSongs.asStateFlow()
+
+    private val _customPlaylists = MutableStateFlow<Map<String, List<Long>>>(emptyMap())
+    val customPlaylists: StateFlow<Map<String, List<Long>>> = _customPlaylists.asStateFlow()
+
+    fun createPlaylist(name: String) {
+        val current = _customPlaylists.value.toMutableMap()
+        if (!current.containsKey(name)) {
+            current[name] = emptyList()
+            _customPlaylists.value = current
+        }
+    }
+
+    fun addSongToPlaylist(playlistName: String, songId: Long) {
+        val current = _customPlaylists.value.toMutableMap()
+        val songs = current[playlistName]?.toMutableList() ?: mutableListOf()
+        if (!songs.contains(songId)) {
+            songs.add(songId)
+            current[playlistName] = songs
+            _customPlaylists.value = current
+        }
+    }
 
     private val itunesRepository = ITunesRepository()
 
@@ -121,6 +166,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             }
+
         })
     }
 

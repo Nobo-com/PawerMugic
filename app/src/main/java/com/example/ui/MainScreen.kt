@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -23,16 +24,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
 import com.example.models.Song
 import com.example.viewmodel.MusicViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.startapp.sdk.ads.banner.Banner
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(viewModel: MusicViewModel) {
     var selectedTabIndex by remember { mutableStateOf(0) }
-    val tabs = listOf("Local", "Online", "Equalizer")
     
     val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
@@ -42,6 +45,9 @@ fun MainScreen(viewModel: MusicViewModel) {
     val isShuffleEnabled by viewModel.isShuffleEnabled.collectAsStateWithLifecycle()
     val isRepeatEnabled by viewModel.isRepeatEnabled.collectAsStateWithLifecycle()
     val favoriteSongs by viewModel.favoriteSongs.collectAsStateWithLifecycle()
+    val sleepTimerMinutes by viewModel.sleepTimerMinutes.collectAsStateWithLifecycle()
+    val localSongs by viewModel.localSongs.collectAsStateWithLifecycle()
+    val onlineSongs by viewModel.onlineSongs.collectAsStateWithLifecycle()
     
     var showFullPlayer by remember { mutableStateOf(false) }
 
@@ -57,14 +63,35 @@ fun MainScreen(viewModel: MusicViewModel) {
                 )
             },
             bottomBar = {
-                if (currentSong != null) {
-                    MiniPlayer(
-                        song = currentSong!!,
-                        isPlaying = isPlaying,
-                        progress = progress,
-                        duration = duration,
-                        onPlayPause = { viewModel.togglePlayPause() },
-                        onClick = { showFullPlayer = true }
+                Column {
+                    if (currentSong != null) {
+                        MiniPlayer(
+                            song = currentSong!!,
+                            isPlaying = isPlaying,
+                            progress = progress,
+                            duration = duration,
+                            onPlayPause = { viewModel.togglePlayPause() },
+                            onClick = { showFullPlayer = true }
+                        )
+                    }
+                    AndroidView(
+                        factory = { context ->
+                            try {
+                                Banner(context).apply {
+                                    layoutParams = android.view.ViewGroup.LayoutParams(
+                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                                    )
+                                }
+                            } catch (e: Exception) {
+                                android.widget.FrameLayout(context)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight()
+                    )
+                    PowerBottomNavigation(
+                        selectedTabIndex = selectedTabIndex,
+                        onTabSelected = { selectedTabIndex = it }
                     )
                 }
             },
@@ -75,32 +102,11 @@ fun MainScreen(viewModel: MusicViewModel) {
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                TabRow(
-                    selectedTabIndex = selectedTabIndex,
-                    containerColor = com.example.ui.theme.PowerBackground,
-                    contentColor = com.example.ui.theme.PowerAccent,
-                    indicator = { tabPositions ->
-                        TabRowDefaults.SecondaryIndicator(
-                            Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                            color = com.example.ui.theme.PowerAccent
-                        )
-                    }
-                ) {
-                    tabs.forEachIndexed { index, title ->
-                        Tab(
-                            selected = selectedTabIndex == index,
-                            onClick = { selectedTabIndex = index },
-                            text = { Text(title, fontWeight = FontWeight.Bold) },
-                            selectedContentColor = com.example.ui.theme.PowerAccent,
-                            unselectedContentColor = com.example.ui.theme.PowerTextSecondary
-                        )
-                    }
-                }
-
                 when (selectedTabIndex) {
-                    0 -> LocalLibraryScreen(viewModel)
-                    1 -> OnlineLibraryScreen(viewModel)
-                    2 -> EqualizerScreen(viewModel)
+                    0 -> LibraryFolderScreen(viewModel)
+                    1 -> EqualizerScreen(viewModel)
+                    2 -> OnlineLibraryScreen(viewModel) // Search
+                    3 -> SettingsScreen(viewModel)
                 }
             }
         }
@@ -116,6 +122,10 @@ fun MainScreen(viewModel: MusicViewModel) {
             )
         ) {
             currentSong?.let { song ->
+                val list = if (song.isOnline) onlineSongs else localSongs
+                val currentIndex = list.indexOfFirst { it.id == song.id }
+                val context = androidx.compose.ui.platform.LocalContext.current
+                
                 SleekPlayerScreen(
                     song = song,
                     isPlaying = isPlaying,
@@ -124,12 +134,26 @@ fun MainScreen(viewModel: MusicViewModel) {
                     isShuffleEnabled = isShuffleEnabled,
                     isRepeatEnabled = isRepeatEnabled,
                     isFavorited = favoriteSongs.contains(song.id),
+                    sleepTimerMinutes = sleepTimerMinutes,
+                    currentIndex = currentIndex,
+                    totalSongs = list.size,
                     onPlayPause = { viewModel.togglePlayPause() },
-                    onNext = { viewModel.nextSong() },
-                    onPrevious = { viewModel.previousSong() },
+                    onNext = { 
+                        try {
+                            com.startapp.sdk.adsbase.StartAppAd.showAd(context)
+                        } catch (e: Exception) {}
+                        viewModel.nextSong() 
+                    },
+                    onPrevious = { 
+                        try {
+                            com.startapp.sdk.adsbase.StartAppAd.showAd(context)
+                        } catch (e: Exception) {}
+                        viewModel.previousSong() 
+                    },
                     onShuffleToggle = { viewModel.toggleShuffle() },
                     onRepeatToggle = { viewModel.toggleRepeat() },
                     onFavoriteToggle = { viewModel.toggleFavorite(song.id) },
+                    onSleepTimerSet = { viewModel.setSleepTimer(it) },
                     onSeek = { position -> viewModel.seekTo(position.toLong()) },
                     onCollapse = { showFullPlayer = false }
                 )
@@ -139,22 +163,408 @@ fun MainScreen(viewModel: MusicViewModel) {
 }
 
 @Composable
-fun LocalLibraryScreen(viewModel: MusicViewModel) {
-    val songs by viewModel.localSongs.collectAsStateWithLifecycle()
+fun PowerBottomNavigation(
+    selectedTabIndex: Int,
+    onTabSelected: (Int) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(32.dp))
+                .background(com.example.ui.theme.PowerSurface)
+                .padding(horizontal = 32.dp, vertical = 12.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val icons = listOf(
+                Icons.Default.GridView,
+                Icons.Default.Equalizer,
+                Icons.Default.Search,
+                Icons.Default.Menu
+            )
+            
+            icons.forEachIndexed { index, icon ->
+                val isSelected = selectedTabIndex == index
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isSelected) com.example.ui.theme.PowerAccent else com.example.ui.theme.PowerTextSecondary,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clickable { onTabSelected(index) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AudioVisualizer(isPlaying: Boolean) {
+    val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "visualizer")
     
-    if (songs.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No local music found.", color = com.example.ui.theme.PowerTextSecondary)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(150.dp)
+            .padding(horizontal = 32.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val bars = 16
+        for (i in 0 until bars) {
+            val randomDuration = remember(i) { kotlin.random.Random.nextInt(300, 900) }
+            val minHeight = remember(i) { kotlin.random.Random.nextDouble(0.1, 0.3).toFloat() }
+            val maxHeight = remember(i) { kotlin.random.Random.nextDouble(0.5, 1.0).toFloat() }
+            
+            val heightMultiplier by infiniteTransition.animateFloat(
+                initialValue = minHeight,
+                targetValue = if (isPlaying) maxHeight else minHeight,
+                animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                    animation = androidx.compose.animation.core.tween(randomDuration, easing = androidx.compose.animation.core.LinearEasing),
+                    repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+                ),
+                label = "barHeight$i"
+            )
+            
+            Box(
+                modifier = Modifier
+                    .width(6.dp)
+                    .fillMaxHeight(heightMultiplier)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(com.example.ui.theme.PowerAccent)
+            )
+        }
+    }
+}
+@Composable
+fun SettingsScreen(viewModel: MusicViewModel) {
+    val currentTheme by viewModel.appTheme.collectAsStateWithLifecycle()
+    val availableThemes = listOf(
+        com.example.ui.theme.ThemeBlue,
+        com.example.ui.theme.ThemePurple,
+        com.example.ui.theme.ThemeGreen,
+        com.example.ui.theme.ThemeRed
+    )
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.height(32.dp))
+        Icon(Icons.Default.Settings, contentDescription = "Settings", tint = com.example.ui.theme.PowerAccent, modifier = Modifier.size(64.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("Settings", color = com.example.ui.theme.PowerText, fontWeight = FontWeight.Bold, fontSize = 24.sp)
+        
+        Spacer(modifier = Modifier.height(48.dp))
+        
+        Text("App Theme", color = com.example.ui.theme.PowerTextSecondary, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.align(Alignment.Start))
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(availableThemes) { theme ->
+                val isSelected = theme.name == currentTheme.name
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (isSelected) com.example.ui.theme.PowerAccent.copy(alpha = 0.2f) else com.example.ui.theme.PowerSurface)
+                        .clickable { viewModel.setAppTheme(theme) }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(theme.accent)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = theme.name,
+                            color = com.example.ui.theme.PowerText,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 18.sp
+                        )
+                    }
+                    if (isSelected) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = "Selected",
+                            tint = com.example.ui.theme.PowerAccent,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LibraryFolderScreen(viewModel: MusicViewModel) {
+    val songs by viewModel.localSongs.collectAsStateWithLifecycle()
+    val favoriteSongs by viewModel.favoriteSongs.collectAsStateWithLifecycle()
+    val customPlaylists by viewModel.customPlaylists.collectAsStateWithLifecycle()
+    
+    // Group songs by actual filesystem folder
+    val systemFolders = remember(songs) { 
+        songs.groupBy { song ->
+            val path = song.data
+            val lastSlash = path.lastIndexOf('/')
+            if (lastSlash != -1) {
+                val folderPath = path.substring(0, lastSlash)
+                val secondLastSlash = folderPath.lastIndexOf('/')
+                if (secondLastSlash != -1) {
+                    folderPath.substring(secondLastSlash + 1)
+                } else folderPath
+            } else "Unknown"
+        } 
+    }
+    
+    var currentView by remember { mutableStateOf<String?>(null) }
+    var currentViewType by remember { mutableStateOf<String?>(null) } // "ALL", "FAVORITE", "SYSTEM_FOLDER", "CUSTOM_FOLDER"
+    
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    
+    if (showCreatePlaylistDialog) {
+        var playlistName by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showCreatePlaylistDialog = false },
+            title = { Text("Create Folder", color = com.example.ui.theme.PowerText) },
+            text = {
+                OutlinedTextField(
+                    value = playlistName,
+                    onValueChange = { playlistName = it },
+                    label = { Text("Folder Name", color = com.example.ui.theme.PowerTextSecondary) },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = com.example.ui.theme.PowerAccent,
+                        focusedTextColor = com.example.ui.theme.PowerText,
+                        unfocusedTextColor = com.example.ui.theme.PowerText
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (playlistName.isNotBlank()) {
+                        viewModel.createPlaylist(playlistName)
+                    }
+                    showCreatePlaylistDialog = false
+                }) {
+                    Text("Create", color = com.example.ui.theme.PowerAccent)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreatePlaylistDialog = false }) {
+                    Text("Cancel", color = com.example.ui.theme.PowerTextSecondary)
+                }
+            },
+            containerColor = com.example.ui.theme.PowerSurface
+        )
+    }
+
+    var songToAdd by remember { mutableStateOf<Song?>(null) }
+
+    if (songToAdd != null) {
+        AlertDialog(
+            onDismissRequest = { songToAdd = null },
+            title = { Text("Add to Folder", color = com.example.ui.theme.PowerText) },
+            text = {
+                if (customPlaylists.isEmpty()) {
+                    Text("No custom folders found. Create one first.", color = com.example.ui.theme.PowerTextSecondary)
+                } else {
+                    LazyColumn {
+                        items(customPlaylists.keys.toList()) { playlistName ->
+                            Text(
+                                text = playlistName,
+                                color = com.example.ui.theme.PowerText,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.addSongToPlaylist(playlistName, songToAdd!!.id)
+                                        songToAdd = null
+                                    }
+                                    .padding(16.dp)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { songToAdd = null }) {
+                    Text("Cancel", color = com.example.ui.theme.PowerAccent)
+                }
+            },
+            containerColor = com.example.ui.theme.PowerSurface
+        )
+    }
+
+    if (currentView != null) {
+        // Show songs inside the selected view
+        val folderSongs = when (currentViewType) {
+            "ALL" -> songs
+            "FAVORITE" -> songs.filter { favoriteSongs.contains(it.id) }
+            "SYSTEM_FOLDER" -> systemFolders[currentView] ?: emptyList()
+            "CUSTOM_FOLDER" -> songs.filter { customPlaylists[currentView]?.contains(it.id) == true }
+            else -> emptyList()
+        }
+        
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { currentView = null; currentViewType = null }
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = com.example.ui.theme.PowerAccent)
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(currentView!!, color = com.example.ui.theme.PowerText, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            }
+            if (folderSongs.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No songs found.", color = com.example.ui.theme.PowerTextSecondary)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(folderSongs) { song ->
+                        SongItem(
+                            song = song, 
+                            onClick = { viewModel.playSong(song) },
+                            onAddToPlaylistClick = { songToAdd = song }
+                        )
+                    }
+                }
+            }
         }
     } else {
+        // Show folders list
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(songs) { song ->
-                SongItem(song = song, onClick = { viewModel.playSong(song) })
+            // All Songs
+            item {
+                FolderItem(name = "All Songs", count = songs.size, icon = Icons.Default.MusicNote) {
+                    currentView = "All Songs"
+                    currentViewType = "ALL"
+                }
             }
+            // Favorites
+            item {
+                val favCount = songs.count { favoriteSongs.contains(it.id) }
+                FolderItem(name = "Favorites", count = favCount, icon = Icons.Default.Favorite) {
+                    currentView = "Favorites"
+                    currentViewType = "FAVORITE"
+                }
+            }
+            
+            // Create Custom Folder
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(com.example.ui.theme.PowerSurface)
+                        .clickable { showCreatePlaylistDialog = true }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Create Folder",
+                        tint = com.example.ui.theme.PowerAccent,
+                        modifier = Modifier.size(40.dp)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = "Create New Folder",
+                        color = com.example.ui.theme.PowerText,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                }
+            }
+            
+            // Custom Folders (Playlists)
+            if (customPlaylists.isNotEmpty()) {
+                item {
+                    Text("My Folders", color = com.example.ui.theme.PowerAccent, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
+                }
+                items(customPlaylists.keys.toList()) { playlistName ->
+                    val count = customPlaylists[playlistName]?.size ?: 0
+                    FolderItem(name = playlistName, count = count, icon = Icons.Default.FolderSpecial) {
+                        currentView = playlistName
+                        currentViewType = "CUSTOM_FOLDER"
+                    }
+                }
+            }
+            
+            // System Folders
+            if (systemFolders.isNotEmpty()) {
+                item {
+                    Text("Device Folders", color = com.example.ui.theme.PowerAccent, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
+                }
+                items(systemFolders.keys.toList()) { folderName ->
+                    val count = systemFolders[folderName]?.size ?: 0
+                    FolderItem(name = folderName, count = count, icon = Icons.Default.Folder) {
+                        currentView = folderName
+                        currentViewType = "SYSTEM_FOLDER"
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FolderItem(name: String, count: Int, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(com.example.ui.theme.PowerSurface)
+            .clickable { onClick() }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            icon,
+            contentDescription = "Folder",
+            tint = com.example.ui.theme.PowerAccent,
+            modifier = Modifier.size(40.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column {
+            Text(
+                text = name,
+                color = com.example.ui.theme.PowerText,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "$count songs",
+                color = com.example.ui.theme.PowerTextSecondary,
+                fontSize = 12.sp
+            )
         }
     }
 }
@@ -229,7 +639,12 @@ fun OnlineLibraryScreen(viewModel: MusicViewModel) {
 }
 
 @Composable
-fun SongItem(song: Song, onClick: () -> Unit, isOnline: Boolean = false) {
+fun SongItem(
+    song: Song, 
+    onClick: () -> Unit, 
+    isOnline: Boolean = false,
+    onAddToPlaylistClick: (() -> Unit)? = null
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -281,6 +696,26 @@ fun SongItem(song: Song, onClick: () -> Unit, isOnline: Boolean = false) {
         
         if (isOnline) {
             Icon(Icons.Default.PlayArrow, contentDescription = "Play Online", tint = MaterialTheme.colorScheme.primary)
+        } else if (onAddToPlaylistClick != null) {
+            var expanded by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { expanded = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "More options", tint = com.example.ui.theme.PowerTextSecondary)
+                }
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.background(com.example.ui.theme.PowerSurface)
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Add to Folder", color = com.example.ui.theme.PowerText) },
+                        onClick = { 
+                            expanded = false
+                            onAddToPlaylistClick() 
+                        }
+                    )
+                }
+            }
         }
     }
 }
@@ -374,24 +809,33 @@ fun SleekPlayerScreen(
     isShuffleEnabled: Boolean,
     isRepeatEnabled: Boolean,
     isFavorited: Boolean,
+    sleepTimerMinutes: Int?,
+    currentIndex: Int,
+    totalSongs: Int,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
     onFavoriteToggle: () -> Unit,
+    onSleepTimerSet: (Int?) -> Unit,
     onSeek: (Float) -> Unit,
     onCollapse: () -> Unit
 ) {
     var sliderValue by remember(progress) { mutableStateOf(progress) }
     var isDragging by remember { mutableStateOf(false) }
+    var showVisualizer by remember { mutableStateOf(false) }
+    var showSleepTimerMenu by remember { mutableStateOf(false) }
+    var showCustomTimerDialog by remember { mutableStateOf(false) }
+    val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "waveform")
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(colors = listOf(Color(0xFF0F1115), Color(0xFF14161B))))
+            .background(Brush.verticalGradient(colors = listOf(Color(0xFF16152C), Color(0xFF0C0910))))
             .statusBarsPadding()
-            .navigationBarsPadding()
+            .navigationBarsPadding(),
+        verticalArrangement = Arrangement.Top
     ) {
         // Top Navigation Bar
         Row(
@@ -406,7 +850,7 @@ fun SleekPlayerScreen(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF1F2228))
+                    .background(Color.Transparent)
             ) {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
@@ -414,46 +858,16 @@ fun SleekPlayerScreen(
                     tint = Color.White
                 )
             }
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "NOW PLAYING",
-                    color = com.example.ui.theme.PowerTextSecondary,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF10B981))
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (song.isOnline) "Streaming Mode" else "Offline Mode",
-                        color = Color(0xFF10B981),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-
             IconButton(
-                onClick = {},
+                onClick = { /* Settings */ },
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF1F2228))
+                    .background(Color.Transparent)
             ) {
                 Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "More Options",
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
                     tint = Color.White
                 )
             }
@@ -464,25 +878,21 @@ fun SleekPlayerScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp),
+                .padding(horizontal = 16.dp),
             contentAlignment = Alignment.Center
         ) {
-            // Glow backdrop effect
-            Box(
-                modifier = Modifier
-                    .size(280.dp)
-                    .clip(CircleShape)
-                    .background(Brush.radialGradient(colors = listOf(Color(0x3B35CCFF), Color.Transparent)))
-            )
-
             // Album Art Container
             Box(
                 modifier = Modifier
-                    .size(290.dp)
-                    .clip(RoundedCornerShape(40.dp))
-                    .background(Brush.linearGradient(colors = listOf(Color(0xFF23262E), Color(0xFF14161B))))
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(32.dp))
+                    .background(Brush.linearGradient(colors = listOf(Color(0xFF2E2B5F), Color(0xFF1E1A3F))))
             ) {
-                if (song.albumArtUri != null) {
+                if (showVisualizer) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        AudioVisualizer(isPlaying = isPlaying)
+                    }
+                } else if (song.albumArtUri != null) {
                     AsyncImage(
                         model = song.albumArtUri,
                         contentDescription = "Album Art",
@@ -502,85 +912,336 @@ fun SleekPlayerScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f))))
+                        .background(Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f)),
+                            startY = 300f
+                        ))
                 )
 
-                // Bottom badge and favorite icon
-                Row(
+                // Overlay Content (Buttons and Text)
+                Column(
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
+                        .align(Alignment.BottomStart)
                         .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(24.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .background(Color(0x66000000), RoundedCornerShape(8.dp))
-                            .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    // Like / Dislike / More
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = if (song.isOnline) "AAC 320K" else "HI-RES 96K",
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            IconButton(
+                                onClick = onFavoriteToggle,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0x33FFFFFF))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ThumbUp,
+                                    contentDescription = "Like",
+                                    tint = if (isFavorited) com.example.ui.theme.PowerAccent else Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = { /* Dislike action */ },
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0x33FFFFFF))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ThumbUp,
+                                    contentDescription = "Dislike",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp).rotate(180f)
+                                )
+                            }
+                        }
+                        
+                        IconButton(
+                            onClick = { /* More options */ },
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(Color(0x33FFFFFF))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More options",
+                                tint = Color.White
+                            )
+                        }
                     }
 
-                    IconButton(
-                        onClick = onFavoriteToggle,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color(0x4D000000))
-                    ) {
-                        Icon(
-                            imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = "Favorite",
-                            tint = if (isFavorited) Color.Red else Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = song.title,
+                        color = Color.White,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = song.artist,
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
-
-        // Song Information
-        Column(
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Action Buttons Row (Visualizer, Timer, Repeat, Shuffle)
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = song.title,
-                color = Color.White,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-0.5).sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = song.artist,
-                color = com.example.ui.theme.PowerTextSecondary,
-                fontSize = 16.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Box(modifier = Modifier.weight(1f)) {
+                IconButton(
+                    onClick = { showVisualizer = !showVisualizer },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(if (showVisualizer) com.example.ui.theme.PowerAccent.copy(alpha = 0.3f) else Color(0x22FFFFFF))
+                ) {
+                    Icon(Icons.Default.GraphicEq, contentDescription = "Visualizer", tint = if (showVisualizer) com.example.ui.theme.PowerAccent else Color.White)
+                }
+            }
+            
+            Box(modifier = Modifier.weight(1f)) {
+                IconButton(
+                    onClick = { showSleepTimerMenu = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(if (sleepTimerMinutes != null) com.example.ui.theme.PowerAccent.copy(alpha = 0.3f) else Color(0x22FFFFFF))
+                ) {
+                    Icon(Icons.Default.Timer, contentDescription = "Timer", tint = if (sleepTimerMinutes != null) com.example.ui.theme.PowerAccent else Color.White)
+                }
+                DropdownMenu(
+                    expanded = showSleepTimerMenu,
+                    onDismissRequest = { showSleepTimerMenu = false },
+                    modifier = Modifier.background(com.example.ui.theme.PowerSurface)
+                ) {
+                    val options = listOf(null to "Off", 5 to "5 Minutes", 15 to "15 Minutes", 30 to "30 Minutes", 60 to "1 Hour", -1 to "Custom...")
+                    options.forEach { (minutes, label) ->
+                        DropdownMenuItem(
+                            text = { 
+                                Text(
+                                    text = if (sleepTimerMinutes != null && minutes == -1 && !listOf(5, 15, 30, 60).contains(sleepTimerMinutes)) "$sleepTimerMinutes Minutes" else label,
+                                    color = if (sleepTimerMinutes == minutes || (minutes == -1 && sleepTimerMinutes != null && !listOf(5, 15, 30, 60).contains(sleepTimerMinutes))) com.example.ui.theme.PowerAccent else com.example.ui.theme.PowerText 
+                                ) 
+                            },
+                            onClick = {
+                                if (minutes == -1) showCustomTimerDialog = true else onSleepTimerSet(minutes)
+                                showSleepTimerMenu = false
+                            }
+                        )
+                    }
+                }
+                
+                if (showCustomTimerDialog) {
+                    var customMinutes by remember { mutableStateOf("") }
+                    AlertDialog(
+                        onDismissRequest = { showCustomTimerDialog = false },
+                        title = { Text("Custom Timer", color = com.example.ui.theme.PowerText) },
+                        text = {
+                            OutlinedTextField(
+                                value = customMinutes,
+                                onValueChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) customMinutes = it },
+                                label = { Text("Minutes", color = com.example.ui.theme.PowerTextSecondary) },
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = com.example.ui.theme.PowerAccent,
+                                    focusedTextColor = com.example.ui.theme.PowerText,
+                                    unfocusedTextColor = com.example.ui.theme.PowerText
+                                )
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                val mins = customMinutes.toIntOrNull()
+                                if (mins != null && mins > 0) {
+                                    onSleepTimerSet(mins)
+                                }
+                                showCustomTimerDialog = false
+                            }) {
+                                Text("Start", color = com.example.ui.theme.PowerAccent)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showCustomTimerDialog = false }) {
+                                Text("Cancel", color = com.example.ui.theme.PowerTextSecondary)
+                            }
+                        },
+                        containerColor = com.example.ui.theme.PowerSurface
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = onRepeatToggle,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(if (isRepeatEnabled) com.example.ui.theme.PowerAccent.copy(alpha = 0.3f) else Color(0x22FFFFFF))
+            ) {
+                Icon(if (isRepeatEnabled) Icons.Default.RepeatOne else Icons.Default.Repeat, contentDescription = "Repeat", tint = if (isRepeatEnabled) com.example.ui.theme.PowerAccent else Color.White)
+            }
+
+            IconButton(
+                onClick = onShuffleToggle,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(if (isShuffleEnabled) com.example.ui.theme.PowerAccent.copy(alpha = 0.3f) else Color(0x22FFFFFF))
+            ) {
+                Icon(Icons.Default.Shuffle, contentDescription = "Shuffle", tint = if (isShuffleEnabled) com.example.ui.theme.PowerAccent else Color.White)
+            }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Progress Slider Section
-        Column(
+        // Large Playback Controls & Waveform
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(100.dp)
                 .padding(horizontal = 24.dp)
         ) {
+            // Animated Waveform (Decorative) on the right side
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.CenterEnd)
+                    .padding(start = 180.dp), // Start after play button
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val bars = 18
+                for (i in 0 until bars) {
+                    val randomDuration = remember(i) { kotlin.random.Random.nextInt(300, 900) }
+                    val minHeight = remember(i) { kotlin.random.Random.nextDouble(0.2, 0.4).toFloat() }
+                    val maxHeight = remember(i) { kotlin.random.Random.nextDouble(0.6, 1.0).toFloat() }
+                    
+                    val heightMultiplier by infiniteTransition.animateFloat(
+                        initialValue = minHeight,
+                        targetValue = if (isPlaying) maxHeight else minHeight,
+                        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                            animation = androidx.compose.animation.core.tween(randomDuration, easing = androidx.compose.animation.core.LinearEasing),
+                            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+                        ),
+                        label = "waveform_$i"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .width(4.dp)
+                            .fillMaxHeight(heightMultiplier)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(Color.White.copy(alpha = if (i < bars / 2) 0.8f else 0.4f))
+                    )
+                }
+            }
+
+            // Controls
+            Row(
+                modifier = Modifier.fillMaxHeight(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { /* Fast Rewind */ },
+                    modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0x1AFFFFFF))
+                ) {
+                    Icon(Icons.Default.FastRewind, contentDescription = "Rewind", tint = Color.White)
+                }
+                
+                IconButton(
+                    onClick = onPrevious,
+                    modifier = Modifier.size(56.dp).clip(CircleShape).background(Color(0x1AFFFFFF))
+                ) {
+                    Icon(Icons.Default.SkipPrevious, contentDescription = "Previous", tint = Color.White, modifier = Modifier.size(28.dp))
+                }
+                
+                // Giant Play button
+                Box(
+                    modifier = Modifier
+                        .size(96.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .clickable { onPlayPause() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = "Play/Pause",
+                        tint = Color.Black,
+                        modifier = Modifier.size(56.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(4.dp))
+                
+                IconButton(
+                    onClick = onNext,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(Icons.Default.SkipNext, contentDescription = "Next", tint = Color.White, modifier = Modifier.size(28.dp))
+                }
+                
+                IconButton(
+                    onClick = { /* Fast Forward */ },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(Icons.Default.FastForward, contentDescription = "Fast Forward", tint = Color.White)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Progress Slider & Timeline text
+        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+            // Timeline text
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+                    .padding(top = 24.dp), // Push text down a bit
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = formatTime(progress.toLong()),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+                Text(
+                    text = formatTime(duration),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
+            
+            // Progress Slider
             Slider(
                 value = if (isDragging) sliderValue else progress,
                 onValueChange = {
@@ -593,119 +1254,42 @@ fun SleekPlayerScreen(
                 },
                 valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
                 colors = SliderDefaults.colors(
-                    thumbColor = com.example.ui.theme.PowerAccent,
-                    activeTrackColor = com.example.ui.theme.PowerAccent,
-                    inactiveTrackColor = com.example.ui.theme.PowerProgressTrack
+                    thumbColor = Color.Transparent,
+                    activeTrackColor = Color.Transparent,
+                    inactiveTrackColor = Color.Transparent
                 ),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().height(24.dp).offset(y = (-16).dp)
             )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = formatTime((if (isDragging) sliderValue else progress).toLong()),
-                    color = com.example.ui.theme.PowerTextSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = formatTime(duration),
-                    color = com.example.ui.theme.PowerTextSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Playback Controls Row
-        Row(
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Context Pill
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 48.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .align(Alignment.CenterHorizontally)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0x22FFFFFF))
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            IconButton(
-                onClick = onShuffleToggle,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Shuffle,
-                    contentDescription = "Shuffle",
-                    tint = if (isShuffleEnabled) com.example.ui.theme.PowerAccent else com.example.ui.theme.PowerTextSecondary,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                IconButton(
-                    onClick = onPrevious,
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF1F2228))
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.SkipPrevious,
-                        contentDescription = "Previous Track",
-                        tint = Color.White,
-                        modifier = Modifier.size(30.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = onPlayPause,
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(com.example.ui.theme.PowerAccent)
-                ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = "Play/Pause",
-                        tint = Color(0xFF0F1115),
-                        modifier = Modifier.size(44.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = onNext,
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF1F2228))
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.SkipNext,
-                        contentDescription = "Next Track",
-                        tint = Color.White,
-                        modifier = Modifier.size(30.dp)
-                    )
-                }
-            }
-
-            IconButton(
-                onClick = onRepeatToggle,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Repeat,
-                    contentDescription = "Repeat",
-                    tint = if (isRepeatEnabled) com.example.ui.theme.PowerAccent else com.example.ui.theme.PowerTextSecondary,
-                    modifier = Modifier.size(24.dp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.MusicNote, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                val indexText = if (currentIndex >= 0 && totalSongs > 0) "${currentIndex + 1}/$totalSongs" else "∞"
+                val sourceText = if (song.isOnline) "ONLINE SONGS" else "ALL SONGS"
+                
+                Text(
+                    text = "$sourceText - $indexText",
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
                 )
             }
         }
+        
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
