@@ -14,19 +14,15 @@
 -renamesourcefileattribute SourceFile
 
 # --- Standard Android Rules ---
--keep class androidx.** { *; }
--keep interface androidx.** { *; }
 -dontwarn androidx.**
 
 # --- Kotlin Rules ---
--keep class kotlin.** { *; }
 -keep class kotlin.Metadata { *; }
 -dontwarn kotlin.**
 
 # --- Coroutines ---
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
--keep class kotlinx.coroutines.** { *; }
 -dontwarn kotlinx.coroutines.**
 
 # --- Serialization (if using kotlinx.serialization) ---
@@ -34,7 +30,6 @@
 -dontnote kotlinx.serialization.AnnotationsKt # core serialization annotations
 
 # --- Compose ---
--keep class androidx.compose.** { *; }
 -dontwarn androidx.compose.**
 
 # Keep generic signatures
