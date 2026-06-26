@@ -1,6 +1,9 @@
 package com.example.ui
 
 import android.app.Activity
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,18 +20,61 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.viewmodel.AuthViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.common.api.ApiException
+import java.security.MessageDigest
+import java.util.Locale
+
+// Helper function to dynamically retrieve SHA-1 of the app's signing certificate at runtime
+fun getAppSignatureSHA1(context: Context): String {
+    try {
+        val packageName = context.packageName
+        val pm = context.packageManager
+        val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val packageInfo = pm.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+            packageInfo.signingInfo?.apkContentsSigners
+        } else {
+            @Suppress("DEPRECATION")
+            val packageInfo = pm.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
+            packageInfo.signatures
+        }
+
+        if (signatures != null && signatures.isNotEmpty()) {
+            val signature = signatures[0]
+            val md = MessageDigest.getInstance("SHA-1")
+            val publicKey = md.digest(signature.toByteArray())
+            val hexString = StringBuilder()
+            for (i in publicKey.indices) {
+                val appendString = Integer.toHexString(0xFF and publicKey[i].toInt())
+                    .uppercase(Locale.US)
+                if (appendString.length == 1) {
+                    hexString.append("0")
+                }
+                hexString.append(appendString)
+                if (i < publicKey.size - 1) {
+                    hexString.append(":")
+                }
+            }
+            return hexString.toString()
+        }
+    } catch (e: Exception) {
+        Log.e("SignatureHelper", "Error getting signature SHA-1", e)
+    }
+    return "UNKNOWN"
+}
 
 @Composable
 fun LoginScreen(
     viewModel: AuthViewModel,
     onLoginSuccess: () -> Unit
 ) {
+    val context = LocalContext.current
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
@@ -42,16 +88,44 @@ fun LoginScreen(
     val signInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-            viewModel.handleSignInResult(task)
+        viewModel.setLoading(false)
+        val data = result.data
+        if (data != null) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
+            try {
+                if (result.resultCode == Activity.RESULT_OK) {
+                    viewModel.handleSignInResult(task)
+                } else {
+                    // Try to get result to extract ApiException if present
+                    val account = task.getResult(ApiException::class.java)
+                    viewModel.handleSignInResult(task)
+                }
+            } catch (e: ApiException) {
+                val statusCode = e.statusCode
+                val errorMsg = when (statusCode) {
+                    10 -> "Developer Error (10): সাধারণত SHA-1 বা প্যাকেজ নাম Firebase কনসোলে ভুল থাকলে অথবা Web Client ID অসঙ্গতিপূর্ণ হলে এটি ঘটে।"
+                    12500 -> "Sign-in Failed (12500): গুগল প্লে সার্ভিস সাইন-ইন করতে পারেনি। আপনার ফোনের গুগল প্লে সার্ভিস আপডেট করুন।"
+                    12501 -> "Sign-in Canceled (12501): ব্যবহারকারী সাইন-ইন বাতিল করেছেন।"
+                    7 -> "Network Error (7): ইন্টারনেট সংযোগ বা সার্ভার সংযোগের সমস্যা।"
+                    else -> "গুগল সাইন-ইন ব্যর্থ হয়েছে। স্ট্যাটাস কোড: $statusCode\nবার্তা: ${e.localizedMessage}"
+                }
+                
+                val currentSha1 = getAppSignatureSHA1(context)
+                viewModel.setErrorMessage(
+                    "$errorMsg\n\n" +
+                    "অনুগ্রহ করে নিশ্চিত করুন যে আপনার Firebase কনসোলে নিচের তথ্যগুলো যুক্ত করা আছে:\n" +
+                    "প্যাকেজ নাম: ${context.packageName}\n" +
+                    "চলতি অ্যাপের SHA-1: $currentSha1"
+                )
+                Log.e("LoginScreen", "Google Sign In API Exception: Status Code $statusCode", e)
+            }
         } else {
-            Log.e("LoginScreen", "Google Sign In Failed. Result code: ${result.resultCode}")
-            viewModel.setLoading(false)
+            val currentSha1 = getAppSignatureSHA1(context)
             viewModel.setErrorMessage(
-                "গুগল সাইন-ইন সম্পন্ন হয়নি। (কোড: ${result.resultCode})\n" +
-                "অনুগ্রহ করে নিশ্চিত করুন যে আপনার Firebase কনসোলে এই অ্যাপটির SHA-1 যুক্ত করা আছে।\n" +
-                "SHA-1: BF:69:84:1C:42:AC:25:E7:CC:32:8D:15:5D:87:76:E7:BB:48:8A:0E"
+                "গুগল সাইন-ইন সম্পন্ন হয়নি বা বাতিল করা হয়েছে। (রেজাল্ট কোড: ${result.resultCode})\n\n" +
+                "অনুগ্রহ করে নিশ্চিত করুন যে আপনার Firebase কনসোলে নিচের তথ্যগুলো যুক্ত করা আছে:\n" +
+                "প্যাকেজ নাম: ${context.packageName}\n" +
+                "চলতি অ্যাপের SHA-1: $currentSha1"
             )
         }
     }
