@@ -12,7 +12,20 @@
           "package_name": "com.shikkhaloyai.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "374513992367-1dmr0o5mljc634og7vjeq4jnu2fvcvi5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.shikkhaloyai.app",
+            "certificate_hash": "bf69841c42ac25e7cc328d155d8776e7bb488a0e"
+          }
+        },
+        {
+          "client_id": "374513992367-n5kercp4pbdc9h6ctjcehcctfc7f3r7u.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAa6Vtpy92rbyy0UXddTBMf-DR-_ycrsUs"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "374513992367-n5kercp4pbdc9h6ctjcehcctfc7f3r7u.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
