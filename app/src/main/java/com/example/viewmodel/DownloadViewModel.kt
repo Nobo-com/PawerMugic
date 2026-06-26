@@ -51,6 +51,24 @@ class DownloadViewModel : ViewModel() {
             originalSize = "৩.৪ MB"
         ),
         DownloadableItem(
+            id = "video_class_2",
+            title = "Big Buck Bunny 360p 10s (ভিডিও)",
+            type = ResourceType.VIDEO,
+            remoteUrl = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4",
+            localFileName = "big_buck_bunny.mp4",
+            description = "বিগ বাক বানি ভিডিও।",
+            originalSize = "১ MB"
+        ),
+        DownloadableItem(
+            id = "video_class_3",
+            title = "Unknown File (ভিডিও)",
+            type = ResourceType.VIDEO,
+            remoteUrl = "http://file-to-link-stevebotz-02.koyeb.app/193678/Unknown_File?hash=AgADRS",
+            localFileName = "stevebotz_video.mp4",
+            description = "স্টিভবটজ কয়ব অ্যাপ থেকে ভিডিও।",
+            originalSize = "40 MB"
+        ),
+        DownloadableItem(
             id = "pdf_notes_1",
             title = "শিক্ষালায় স্পেশাল বাংলা ব্যাকরণ গাইড (পিডিএফ)",
             type = ResourceType.PDF,
@@ -58,6 +76,15 @@ class DownloadViewModel : ViewModel() {
             localFileName = "bangla_grammar.pdf",
             description = "বিসিএস ও অন্যান্য প্রতিযোগিতামূলক পরীক্ষার জন্য উপযোগী শিক্ষালায়ের এই স্পেশাল বাংলা ব্যাকরণ পিডিএফ লেকচার শিট।",
             originalSize = "১০ KB"
+        ),
+        DownloadableItem(
+            id = "pdf_notes_2",
+            title = "বিষয়ভিত্তিক গাইডলাইন ১ (পিডিএফ)",
+            type = ResourceType.PDF,
+            remoteUrl = "https://plgb.koyeb.app/dl/6a1c715d2f229e4f4468b221/%E0%A6%AC%E0%A6%BF%E0%A6%B7%E0%A7%9F%E0%A6%AD%E0%A6%BF%E0%A6%A4%E0%A7%8D%E0%A6%A4%E0%A6%BF%E0%A6%95%20%E0%A6%97%E0%A6%BE%E0%A6%87%E0%A6%A1%E0%A6%B2%E0%A6%BE%E0%A6%87%E0%A6%A8_1.pdf",
+            localFileName = "subject_guideline_1.pdf",
+            description = "বিষয়ভিত্তিক গাইডলাইন ১ পিডিএফ।",
+            originalSize = "Unknown"
         ),
         DownloadableItem(
             id = "chart_img_1",
