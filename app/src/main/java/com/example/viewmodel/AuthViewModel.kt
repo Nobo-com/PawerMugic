@@ -99,6 +99,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _currentUser.value = null
     }
 
+    fun setErrorMessage(message: String?) {
+        _errorMessage.value = message
+    }
+
+    fun setLoading(loading: Boolean) {
+        _isLoading.value = loading
+    }
+
     private fun fetchDeviceAndIpInfo() {
         val manufacturer = Build.MANUFACTURER
         val model = Build.MODEL

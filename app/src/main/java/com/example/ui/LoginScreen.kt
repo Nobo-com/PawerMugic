@@ -47,6 +47,12 @@ fun LoginScreen(
             viewModel.handleSignInResult(task)
         } else {
             Log.e("LoginScreen", "Google Sign In Failed. Result code: ${result.resultCode}")
+            viewModel.setLoading(false)
+            viewModel.setErrorMessage(
+                "গুগল সাইন-ইন সম্পন্ন হয়নি। (কোড: ${result.resultCode})\n" +
+                "অনুগ্রহ করে নিশ্চিত করুন যে আপনার Firebase কনসোলে এই অ্যাপটির SHA-1 যুক্ত করা আছে।\n" +
+                "SHA-1: BF:69:84:1C:42:AC:25:E7:CC:32:8D:15:5D:87:76:E7:BB:48:8A:0E"
+            )
         }
     }
 
@@ -211,6 +217,8 @@ fun LoginScreen(
                         } else {
                             Button(
                                 onClick = {
+                                    viewModel.setLoading(true)
+                                    viewModel.setErrorMessage(null)
                                     val signInIntent = viewModel.getGoogleSignInClient().signInIntent
                                     signInLauncher.launch(signInIntent)
                                 },
