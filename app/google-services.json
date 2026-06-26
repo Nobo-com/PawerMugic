@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "374513992367",
+    "project_id": "shikkhaloy-ai",
+    "storage_bucket": "shikkhaloy-ai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:374513992367:android:0d28e90fce6f85dca9ca5a",
+        "android_client_info": {
+          "package_name": "com.shikkhaloyai.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAa6Vtpy92rbyy0UXddTBMf-DR-_ycrsUs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
