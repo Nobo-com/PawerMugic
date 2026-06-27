@@ -70,9 +70,14 @@ class DownloaderViewModel : ViewModel() {
         while (redirects < 5) {
             val connection = URL(currentUrl).openConnection() as HttpURLConnection
             connection.instanceFollowRedirects = false
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-            connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
+            connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
             connection.setRequestProperty("Accept-Language", "en-US,en;q=0.5")
+            connection.setRequestProperty("Sec-Fetch-Dest", "document")
+            connection.setRequestProperty("Sec-Fetch-Mode", "navigate")
+            connection.setRequestProperty("Sec-Fetch-Site", "none")
+            connection.setRequestProperty("Sec-Fetch-User", "?1")
+            connection.setRequestProperty("Upgrade-Insecure-Requests", "1")
             val responseCode = connection.responseCode
             if (responseCode in 300..399) {
                 val location = connection.getHeaderField("Location")
@@ -91,9 +96,14 @@ class DownloaderViewModel : ViewModel() {
 
     private suspend fun fetchHtml(urlStr: String): String = withContext(Dispatchers.IO) {
         val connection = URL(urlStr).openConnection() as HttpURLConnection
-        connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-        connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+        connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
+        connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
         connection.setRequestProperty("Accept-Language", "en-US,en;q=0.5")
+        connection.setRequestProperty("Sec-Fetch-Dest", "document")
+        connection.setRequestProperty("Sec-Fetch-Mode", "navigate")
+        connection.setRequestProperty("Sec-Fetch-Site", "none")
+        connection.setRequestProperty("Sec-Fetch-User", "?1")
+        connection.setRequestProperty("Upgrade-Insecure-Requests", "1")
         
         try {
             connection.inputStream.bufferedReader().use { it.readText() }
