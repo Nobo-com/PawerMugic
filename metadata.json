@@ -1,6 +1,6 @@
 {
-  "name": "Shikkhaloy",
-  "description": "Educational application.",
+  "name": "FB Downloader",
+  "description": "Facebook Video Downloader app.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

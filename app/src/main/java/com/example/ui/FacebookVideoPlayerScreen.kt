@@ -29,14 +29,14 @@ import com.example.viewmodel.FacebookVideoState
 
 @Composable
 fun FacebookVideoPlayerScreen(
-    fbVideoId: String,
+    fbPublicUrl: String,
     onBack: () -> Unit,
     viewModel: FacebookVideoViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(fbVideoId) {
-        viewModel.loadFacebookVideo(fbVideoId)
+    LaunchedEffect(fbPublicUrl) {
+        viewModel.loadFacebookVideo(fbPublicUrl)
     }
 
     Box(modifier = Modifier
@@ -56,7 +56,7 @@ fun FacebookVideoPlayerScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(text = state.message, color = Color.Red, modifier = Modifier.padding(16.dp))
-                    Button(onClick = { viewModel.loadFacebookVideo(fbVideoId) }) {
+                    Button(onClick = { viewModel.loadFacebookVideo(fbPublicUrl) }) {
                         Text("Retry")
                     }
                 }

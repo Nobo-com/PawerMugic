@@ -10,27 +10,11 @@ import com.example.viewmodel.AuthViewModel
 fun AppNavigation(viewModel: AuthViewModel) {
     val navController = rememberNavController()
     
-    val startDestination = "dashboard" // Bypass login for preview: if (viewModel.currentUser.value != null) "dashboard" else "login"
+    val startDestination = "downloader"
 
     NavHost(navController = navController, startDestination = startDestination) {
-        composable("login") {
-            LoginScreen(
-                viewModel = viewModel,
-                onLoginSuccess = {
-                    navController.navigate("dashboard") {
-                        popUpTo("login") { inclusive = true }
-                    }
-                }
-            )
-        }
-        composable("dashboard") {
-            AdminUploadScreen(
-                onSignOut = {
-                    navController.navigate("login") {
-                        popUpTo("dashboard") { inclusive = true }
-                    }
-                }
-            )
+        composable("downloader") {
+            DownloaderScreen()
         }
     }
 }

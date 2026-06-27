@@ -52,39 +52,11 @@ class VideoUploadViewModel : ViewModel() {
         }
     }
 
-    fun updateFbToken(token: String) {
+    fun addVideo(title: String, category: String, fbPublicUrl: String) {
         viewModelScope.launch {
             try {
-                _uiState.value = VideoUploadState.Uploading("Updating Facebook Token in Database...")
-                repository.updateFbToken(token)
-                _uiState.value = VideoUploadState.Success
-            } catch (e: Exception) {
-                _uiState.value = VideoUploadState.Error(e.message ?: "Failed to update FB token")
-            }
-        }
-    }
-
-    fun uploadVideo(context: Context, videoUri: Uri, title: String, category: String) {
-        viewModelScope.launch {
-            try {
-                _uiState.value = VideoUploadState.Uploading("Fetching Facebook token from Database...")
-                val fbToken = repository.getFbTokenFromTurso()
-                
-                if (fbToken.isNullOrEmpty()) {
-                    _uiState.value = VideoUploadState.Error("Failed to retrieve Facebook Token from Database.")
-                    return@launch
-                }
-                
-                _uiState.value = VideoUploadState.Uploading("Uploading video to Facebook (This may take a while)...")
-                val fbVideoId = repository.uploadVideoToFacebook(context, videoUri, title, category, fbToken)
-                
-                if (fbVideoId.isEmpty()) {
-                    _uiState.value = VideoUploadState.Error("Failed to get Video ID from Facebook.")
-                    return@launch
-                }
-                
                 _uiState.value = VideoUploadState.Uploading("Syncing video to Turso Database...")
-                repository.saveVideoToTurso(title, category, fbVideoId)
+                repository.saveVideoToTurso(title, category, fbPublicUrl)
                 
                 loadVideos()
                 
