@@ -31,12 +31,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.viewmodel.DownloaderState
-import com.example.viewmodel.DownloaderViewModel
+import com.example.viewmodel.VideoDownloaderViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloaderScreen(
-    viewModel: DownloaderViewModel = viewModel()
+    viewModel: VideoDownloaderViewModel = viewModel()
 ) {
     var urlInput by remember { mutableStateOf("https://www.facebook.com/share/v/19AExLG3zX/") }
     val uiState by viewModel.uiState.collectAsState()

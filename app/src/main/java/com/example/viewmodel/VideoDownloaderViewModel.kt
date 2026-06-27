@@ -23,7 +23,7 @@ sealed class DownloaderState {
     data class Error(val message: String) : DownloaderState()
 }
 
-class DownloaderViewModel : ViewModel() {
+class VideoDownloaderViewModel : ViewModel() {
     private val _uiState = MutableStateFlow<DownloaderState>(DownloaderState.Idle)
     val uiState: StateFlow<DownloaderState> = _uiState.asStateFlow()
 
@@ -70,14 +70,9 @@ class DownloaderViewModel : ViewModel() {
         while (redirects < 5) {
             val connection = URL(currentUrl).openConnection() as HttpURLConnection
             connection.instanceFollowRedirects = false
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
             connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
             connection.setRequestProperty("Accept-Language", "en-US,en;q=0.5")
-            connection.setRequestProperty("Sec-Fetch-Dest", "document")
-            connection.setRequestProperty("Sec-Fetch-Mode", "navigate")
-            connection.setRequestProperty("Sec-Fetch-Site", "none")
-            connection.setRequestProperty("Sec-Fetch-User", "?1")
-            connection.setRequestProperty("Upgrade-Insecure-Requests", "1")
             val responseCode = connection.responseCode
             if (responseCode in 300..399) {
                 val location = connection.getHeaderField("Location")
@@ -96,14 +91,9 @@ class DownloaderViewModel : ViewModel() {
 
     private suspend fun fetchHtml(urlStr: String): String = withContext(Dispatchers.IO) {
         val connection = URL(urlStr).openConnection() as HttpURLConnection
-        connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
+        connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
         connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
         connection.setRequestProperty("Accept-Language", "en-US,en;q=0.5")
-        connection.setRequestProperty("Sec-Fetch-Dest", "document")
-        connection.setRequestProperty("Sec-Fetch-Mode", "navigate")
-        connection.setRequestProperty("Sec-Fetch-Site", "none")
-        connection.setRequestProperty("Sec-Fetch-User", "?1")
-        connection.setRequestProperty("Upgrade-Insecure-Requests", "1")
         
         try {
             connection.inputStream.bufferedReader().use { it.readText() }
@@ -116,7 +106,7 @@ class DownloaderViewModel : ViewModel() {
 
     private fun extractUrl(html: String, keys: Array<String>): String? {
         for (key in keys) {
-            var matcher = Pattern.compile("\"$key\":\"(.*?)\"").matcher(html)
+            var matcher = Pattern.compile("\"$key\"\\s*:\\s*\"([^\"]+)\"").matcher(html)
             if (matcher.find()) {
                 val match = matcher.group(1)
                 if (match != null) {
@@ -124,8 +114,17 @@ class DownloaderViewModel : ViewModel() {
                 }
             }
             
+            // Sometimes it's unquoted key
+            matcher = Pattern.compile("$key\\s*:\\s*\"([^\"]+)\"").matcher(html)
+            if (matcher.find()) {
+                val match = matcher.group(1)
+                if (match != null) {
+                    return unescape(match)
+                }
+            }
+
             if (key == "og:video" || key == "og:video:secure_url") {
-                matcher = Pattern.compile("<meta property=\"$key\" content=\"([^\"]+)\"").matcher(html)
+                matcher = Pattern.compile("<meta\\s+(?:property|name)=\"$key\"\\s+content=\"([^\"]+)\"").matcher(html)
                 if (matcher.find()) {
                     val match = matcher.group(1)
                     if (match != null) {
@@ -134,6 +133,18 @@ class DownloaderViewModel : ViewModel() {
                 }
             }
         }
+        
+        // Fallback for general video URLs if keys fail
+        if (keys.contains("playable_url") || keys.contains("sd_src")) {
+            val fallbackMatcher = Pattern.compile("\"(?:hd_src|sd_src|playable_url|browser_native_hd_url|browser_native_sd_url)\"\\s*:\\s*\"([^\"]+)\"").matcher(html)
+            if (fallbackMatcher.find()) {
+                val match = fallbackMatcher.group(1)
+                if (match != null) {
+                    return unescape(match)
+                }
+            }
+        }
+        
         return null
     }
 
