@@ -38,7 +38,7 @@ fun AdminUploadScreen(
     
     var title by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("") }
-    var fbTokenInput by remember { mutableStateOf("") }
+    var fbTokenInput by remember { mutableStateOf("EABAZAfab6kxABRyCQwvgsDqp0ZAJknn9V5cYUbOZBp1I5FIj1iZCqJP4SXiZAaCsajJzaryZAcvu0ZAeIZCtNAmFV8F7yk9zEVZAZCAp9L4fkU8oAzZBZBtPMpVQh3icVYtnS797W75iC3kLgH3sUnXCnwNRpZAFhbauUbFOkUkKRRnT1tbfbhTB1njDfCD8RngbxJuaniQZDZD") }
     var selectedVideoUri by remember { mutableStateOf<Uri?>(null) }
     var toPlay by remember { mutableStateOf<String?>(null) }
     

@@ -22,6 +22,8 @@ class FacebookVideoRepository {
             throw Exception("Turso DB URL is not configured. Please add it to the Secrets panel.")
         }
         
+        val apiUrl = if (url.endsWith("/v2/pipeline")) url else "${url.trimEnd('/')}/v2/pipeline"
+        
         // Construct the Turso request to get the FB token using org.json
         val sqlQuery = "SELECT value FROM app_config WHERE key = 'fb_token' LIMIT 1"
         
@@ -35,22 +37,14 @@ class FacebookVideoRepository {
             })
         }
         
-        val closeStmt = JSONObject().apply {
-            put("type", "close")
-            put("stmt", JSONObject().apply {
-                put("sql", "")
-            })
-        }
-        
         requestsArray.put(executeStmt)
-        requestsArray.put(closeStmt)
         requestObj.put("requests", requestsArray)
         
         val jsonBody = requestObj.toString()
         val body = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
         
         val request = Request.Builder()
-            .url(url)
+            .url(apiUrl)
             .post(body)
             .addHeader("Authorization", "Bearer $token")
             .build()

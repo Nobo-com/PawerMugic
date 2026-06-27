@@ -33,6 +33,11 @@ class VideoUploadRepository {
     private val tursoUrl = BuildConfig.TURSO_DB_URL
     private val tursoToken = BuildConfig.TURSO_READ_TOKEN
 
+    private fun getApiUrl(): String {
+        return if (tursoUrl.endsWith("/v2/pipeline")) tursoUrl
+        else "${tursoUrl.trimEnd('/')}/v2/pipeline"
+    }
+
     suspend fun initializeDatabase() = withContext(Dispatchers.IO) {
         if (tursoUrl.isBlank() || tursoUrl.contains("YOUR_TURSO")) {
             throw Exception("Turso DB URL is not configured.")
@@ -52,17 +57,13 @@ class VideoUploadRepository {
             put("type", "execute")
             put("stmt", JSONObject().apply { put("sql", createVideosTable) })
         })
-        requestsArray.put(JSONObject().apply {
-            put("type", "close")
-            put("stmt", JSONObject().apply { put("sql", "") })
-        })
         
         requestObj.put("requests", requestsArray)
         
         val body = requestObj.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
         
         val request = Request.Builder()
-            .url(tursoUrl)
+            .url(getApiUrl())
             .post(body)
             .addHeader("Authorization", "Bearer $tursoToken")
             .build()
@@ -95,18 +96,12 @@ class VideoUploadRepository {
             })
         }
         
-        val closeStmt = JSONObject().apply {
-            put("type", "close")
-            put("stmt", JSONObject().apply { put("sql", "") })
-        }
-        
         requestsArray.put(executeStmt)
-        requestsArray.put(closeStmt)
         requestObj.put("requests", requestsArray)
         
         val body = requestObj.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
         val request = Request.Builder()
-            .url(tursoUrl)
+            .url(getApiUrl())
             .post(body)
             .addHeader("Authorization", "Bearer $tursoToken")
             .build()
@@ -133,27 +128,19 @@ class VideoUploadRepository {
             })
         }
         
-        val closeStmt = JSONObject().apply {
-            put("type", "close")
-            put("stmt", JSONObject().apply {
-                put("sql", "")
-            })
-        }
-        
         requestsArray.put(executeStmt)
-        requestsArray.put(closeStmt)
         requestObj.put("requests", requestsArray)
         
         val body = requestObj.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
         
         val request = Request.Builder()
-            .url(tursoUrl)
+            .url(getApiUrl())
             .post(body)
             .addHeader("Authorization", "Bearer $tursoToken")
             .build()
             
         client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("Failed to get token: $response")
+            if (!response.isSuccessful) throw IOException("Failed to get token: ${response.body?.string()}")
             
             val responseData = response.body?.string() ?: return@use null
             val tursoResponse = JSONObject(responseData)
@@ -176,6 +163,7 @@ class VideoUploadRepository {
             return@use null
         }
     }
+
     
     suspend fun uploadVideoToFacebook(
         context: Context,
@@ -233,21 +221,13 @@ class VideoUploadRepository {
             })
         }
         
-        val closeStmt = JSONObject().apply {
-            put("type", "close")
-            put("stmt", JSONObject().apply {
-                put("sql", "")
-            })
-        }
-        
         requestsArray.put(executeStmt)
-        requestsArray.put(closeStmt)
         requestObj.put("requests", requestsArray)
         
         val body = requestObj.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
         
         val request = Request.Builder()
-            .url(tursoUrl)
+            .url(getApiUrl())
             .post(body)
             .addHeader("Authorization", "Bearer $tursoToken")
             .build()
@@ -275,21 +255,13 @@ class VideoUploadRepository {
             })
         }
         
-        val closeStmt = JSONObject().apply {
-            put("type", "close")
-            put("stmt", JSONObject().apply {
-                put("sql", "")
-            })
-        }
-        
         requestsArray.put(executeStmt)
-        requestsArray.put(closeStmt)
         requestObj.put("requests", requestsArray)
         
         val body = requestObj.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
         
         val request = Request.Builder()
-            .url(tursoUrl)
+            .url(getApiUrl())
             .post(body)
             .addHeader("Authorization", "Bearer $tursoToken")
             .build()
