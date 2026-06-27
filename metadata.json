@@ -1,6 +1,6 @@
 {
-  "name": "FB Downloader",
-  "description": "Facebook Video Downloader app.",
+  "name": "FB Video Downloader",
+  "description": "Download public videos from Facebook via URL.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
