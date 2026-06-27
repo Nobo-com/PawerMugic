@@ -11,8 +11,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -158,7 +159,7 @@ fun DownloaderScreen(
                                     Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
                                 }) {
                                     Icon(
-                                        imageVector = Icons.Default.ContentCopy,
+                                        imageVector = Icons.Default.Share,
                                         contentDescription = "Copy URL",
                                         tint = Color.White
                                     )
@@ -234,7 +235,7 @@ fun DownloadOptionCard(title: String, color: Color, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Default.Download,
+                imageVector = Icons.Default.Add,
                 contentDescription = null,
                 tint = color,
                 modifier = Modifier.size(28.dp)

@@ -71,6 +71,8 @@ class DownloaderViewModel : ViewModel() {
             val connection = URL(currentUrl).openConnection() as HttpURLConnection
             connection.instanceFollowRedirects = false
             connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+            connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+            connection.setRequestProperty("Accept-Language", "en-US,en;q=0.5")
             val responseCode = connection.responseCode
             if (responseCode in 300..399) {
                 val location = connection.getHeaderField("Location")
@@ -92,7 +94,14 @@ class DownloaderViewModel : ViewModel() {
         connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
         connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
         connection.setRequestProperty("Accept-Language", "en-US,en;q=0.5")
-        connection.inputStream.bufferedReader().use { it.readText() }
+        
+        try {
+            connection.inputStream.bufferedReader().use { it.readText() }
+        } catch (e: Exception) {
+            val responseCode = connection.responseCode
+            val errorBody = connection.errorStream?.bufferedReader()?.use { it.readText() }
+            throw Exception("HTTP Error $responseCode: ${e.message}\nBody: ${errorBody?.take(100)}")
+        }
     }
 
     private fun extractUrl(html: String, keys: Array<String>): String? {

@@ -4,10 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.viewmodel.AuthViewModel
 
 @Composable
-fun AppNavigation(viewModel: AuthViewModel) {
+fun AppNavigation() {
     val navController = rememberNavController()
     
     val startDestination = "downloader"
